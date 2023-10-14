@@ -1,2 +1,2 @@
 # VizuoSense
-This is a repofor the Intelligent Camera for the visually impaired project called VizuoSense.
+This is a repo for the Intelligent Camera for the visually impaired project preferably refered to as VizuoSense©.
