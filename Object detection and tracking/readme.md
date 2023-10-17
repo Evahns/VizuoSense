@@ -1,5 +1,5 @@
 Install the dependent libraries as follows:
 
-'''pip install -r requirements.txt''' 
-
+```bash
+pip install -r requirements.txt
 
