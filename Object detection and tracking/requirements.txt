@@ -1,0 +1,3 @@
+﻿ultralytics==8.0.198
+cvzone==1.6.1
+opencv-python==4.7.0.72
