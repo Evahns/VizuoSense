@@ -1,2 +1,7 @@
 # VizuoSense
-This is a repo for the Intelligent Camera for the visually impaired project preferably refered to as VizuoSense©.
+The Intelligent Camera for the visually impaired project preferably refered to as VizuoSense©.
+
+By reveraging on computer vision, AI and ML, computer hardware and algorithms, it is possible to empower visually impaired individual get an immersive experience of their environment.
+
+
+This is all that is acheieved on this codebase.
