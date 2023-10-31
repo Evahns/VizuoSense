@@ -8,16 +8,25 @@ from PIL import Image
 import numpy as np
 from ultralytics import YOLO
 import pandas as pd 
+import json
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()  # Convert NumPy arrays to lists
+        if isinstance(obj, np.float32):
+            return float(obj)  # Convert np.float32 to regular float
+        return super(NumpyEncoder, self).default(obj)
 
 # Specify the directory where you want to save the frames
-output_directory ="D://vizuosense mine//Resources//Saves"
+output_directory ="C:\\Users\\Admin\\Pictures\\Depth"
 
 # Create the output directory if it doesn't exist
 if not os.path.exists(output_directory):
     os.makedirs(output_directory)
 
 # Load the YOLO model
-model = YOLO("D://vizuosense mine//Resources//yolov8l.pt")
+model = YOLO("C://Users//Admin//Downloads//yolo-weights//yolov8l.pt")
 
 # Load the MiDaS model from PyTorch Hub
 midas = torch.hub.load("intel-isl/MiDaS", "MiDaS_small").eval()
@@ -91,11 +100,7 @@ def process_image(frame, camera_center_x, camera_center_y, focal_length):
             box_area = w * h
             coverage_percentage = (box_area / image_area) * 100
 
-            # Choose the color based on coverage percentage
-            if coverage_percentage > 50:
-                color = (0, 0, 255)  # Red
-            else:
-                color = (0, 255, 0)  # Green
+            
 
             # Check if we have detected objects of this class before
             if object_class not in detected_objects_per_class:
@@ -118,10 +123,41 @@ def process_image(frame, camera_center_x, camera_center_y, focal_length):
                 'horizontal_deviation': horizontal_deviation,
                 'vertical_deviation': vertical_deviation
             }
+            # Choose the color based on coverage percentage
+            if coverage_percentage > 50:
+                color = (0, 0, 255)  # Red
+                cv2.putText(frame, f"{conf:.2f}) distance: {distance:.2f} :Too Near", (x1, y1 - 10), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color, 2)
+            else:
+                color = (0, 255, 0)  # Green
+            # Draw small dots at x1, y1, x2, y2
+            cv2.circle(frame, (x1, y1), 3, color, -1)
+            cv2.circle(frame, (x2, y2), 3, color, -1)  
+            # Draw horizontal lines based on distance
+            line_color = (0, 255, 0)  # Green color
+            line_thickness = 2
 
-            # Draw bounding boxes and labels on the image with the chosen color
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(frame, f"{object_name} ({conf:.2f})", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            for y in range(frame.shape[0] - 1, camera_center_y, -10):
+                if y >= 0 and y < len(depth_map):
+                    # Calculate the depth at the line's position
+                    line_depth = depth_map[y][camera_center_x]
+
+                    # Calculate the line length based on depth (adjust as needed)
+                    line_length = int(line_depth * 2)  # You may need to adjust the scaling factor
+
+                    # Calculate the starting and ending points of the line
+                    start_point = (camera_center_x - line_length // 2, y)
+                    end_point = (camera_center_x + line_length // 2, y)
+
+                    cv2.line(frame, start_point, end_point, line_color, line_thickness)
+            #Add "VizuoSense" text to the top left corner
+            
+            text = "VS engine running..."
+            font = cv2.FONT_HERSHEY_TRIPLEX
+            font_scale = 0.6
+            font_color = (64, 64, 64)  # White color
+            cv2.putText(frame, text, (10, 30), font, font_scale, font_color, 1)
+            
+            
 
     return frame, detected_objects
 
@@ -144,7 +180,7 @@ frame_count = 0
 max_frames_to_process = 10  # Change this to process a specific number of frames
 
 # Initialize the VideoCapture object (0 for default camera, or provide the video file path)
-cap = cv2.VideoCapture(1)  # Change the argument if using a different video source
+cap = cv2.VideoCapture(0)  # Change the argument if using a different video source
 
 while True:
     ret, frame = cap.read()
@@ -173,12 +209,13 @@ while True:
 
         # Reset the timer
         start_time = time()
-        
-        df = pd.DataFrame(processed_frames)
-        
-        output_csv_path = "D://vizuosense mine//Resources//Saves//processed_frames.csv"
-        df.to_csv(output_csv_path, index=False)
-        print(f"Success !!! DataFrame saved to {output_csv_path}")
+
+        # When saving the JSON data, use the custom encoder
+        json_data = json.dumps(processed_frames, indent=4, cls=NumpyEncoder)
+        output_json_path = f"C:/Users/Admin/Documents/processed_frames_{frame_count}.json"
+        with open(output_json_path, "w") as json_file:
+            json_file.write(json_data)
+        print(f"Success! JSON data saved to {output_json_path}")
 
     # If you want to break the loop after processing a specific number of frames, you can add a condition here
     if max_frames_to_process and frame_count >= max_frames_to_process:
@@ -186,3 +223,4 @@ while True:
 
 # Release the VideoCapture and close any open windows
 cap.release()
+
