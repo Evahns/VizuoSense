@@ -46,7 +46,7 @@ class DepthEstimator:
         scaling_factor = 0.01
         depth_map = depth_map * scaling_factor
         return depth_map
-
+        
 class FrameProcessor:
     def __init__(self, camera_center_x, camera_center_y, focal_length, object_detector, depth_estimator):
         self.camera_center_x = camera_center_x
@@ -62,9 +62,38 @@ class FrameProcessor:
         return processed_frame
 
     def draw_objects(self, frame, detected_objects, depth_map):
-        # Drawing code for objects and depth lines
-        # ... (your existing code for drawing objects and depth lines)
+        for obj in detected_objects:
+            x1, y1, x2, y2, conf, object_class = obj['x1'], obj['y1'], obj['x2'], obj['y2'], obj['conf'], obj['class']
+            distance = self.calculate_distance(x1, y1, x2, y2, depth_map)
+            horizontal_deviation = self.calculate_horizontal_deviation(x1, x2)
+            vertical_deviation = self.calculate_vertical_deviation(y1, y2)
+
+            
+
         return frame
+
+    def calculate_distance(self, x1, y1, x2, y2, depth_map):
+        # Define the region of interest within the bounding box
+        roi = depth_map[y1:y2, x1:x2]
+        # Calculate the weighted average depth within the region
+        y, x = np.indices(roi.shape)
+        total_depth = np.sum(roi)
+        weighted_x = np.sum(x * roi)
+        weighted_y = np.sum(y * roi)
+        if total_depth > 0:
+            center_x = x1 + weighted_x / total_depth
+            center_y = y1 + weighted_y / total_depth
+            distance = roi[int(center_y - y1), int(center_x - x1)]
+            return distance
+        else:
+            # Handle the case where there is no valid depth information in the region
+            return None
+
+    def calculate_horizontal_deviation(self, x1, x2):
+        return math.degrees(math.atan((x1 + (x2 - x1) / 2 - self.camera_center_x) / self.focal_length))
+
+    def calculate_vertical_deviation(self, y1, y2):
+        return math.degrees(math.atan((y1 + (y2 - y1) / 2 - self.camera_center_y) / self.focal_length)
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -104,7 +133,23 @@ class FrameAnalyzer:
             with open(output_json_path, "w") as json_file:
                 json_file.write(json_data)
             print(f"Success! JSON data saved to {output_json_path}")
-            self.processed_frames = []
+            self.processed_frames.append({
+                'frame_count': self.frame_count,
+                'detected_objects': [
+                    {
+                        'x1': obj['x1'],
+                        'y1': obj['y1'],
+                        'x2': obj['x2'],
+                        'y2': obj['y2'],
+                        'conf': obj['conf'],
+                        'class': obj['class'],
+                        'distance': self.calculate_distance(obj['x1'], obj['y1'], obj['x2'], obj['y2'], depth_map),
+                        'horizontal_deviation': self.calculate_horizontal_deviation(obj['x1'], obj['x2']),
+                        'vertical_deviation': self.calculate_vertical_deviation(obj['y1'], obj['y2'])
+                    }
+                    for obj in detected_objects
+                ]
+            })
             self.start_time = time()
 
     def should_break(self):
