@@ -8,6 +8,7 @@ from PIL import Image
 import numpy as np
 from ultralytics import YOLO
 import json
+import math
 
 class ObjectDetector:
     def __init__(self, weights_path, classNames):
@@ -16,7 +17,7 @@ class ObjectDetector:
 
     def detect_objects(self, frame):
         results = self.model(frame)
-        detected_objects = []
+        detected_objects = {}
         for r in results:
             boxes = r.boxes
             for box in boxes:
@@ -26,24 +27,24 @@ class ObjectDetector:
                 conf = round(box.conf[0].item(), 2)
                 cls = int(box.cls[0])
                 object_class = self.classNames[cls] if 0 <= cls < len(self.classNames) else "Unknown"
-                detected_objects.append({
+                detected_objects[object_class] = {
                     'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
-                    'conf': conf, 'class': object_class,
-                })
+                    'conf': conf
+                }
         return detected_objects
 
 class DepthEstimator:
     def __init__(self):
         self.midas = torch.hub.load("intel-isl/MiDaS", "MiDaS_small").eval()
 
-    def calculate_depth_map(self, frame):
+    def depth(self, frame):
         transform = T.Compose([T.Resize(384), T.ToTensor()])
         input_image = transform(Image.fromarray(frame)).unsqueeze(0)
         with torch.no_grad():
             prediction = self.midas(input_image)
         depth_map = prediction.squeeze().cpu().numpy()
         depth_map = cv2.normalize(depth_map, None, 0, 255, cv2.NORM_MINMAX)
-        scaling_factor = 0.01
+        scaling_factor = 1.0
         depth_map = depth_map * scaling_factor
         return depth_map
         
@@ -54,23 +55,26 @@ class FrameProcessor:
         self.focal_length = focal_length
         self.object_detector = object_detector
         self.depth_estimator = depth_estimator
+        self.frame_count = 0 
+        self.detected_objects_dict = {
+            'frame_count': self.frame_count,
+            'detected_objects': [],
+        }
 
     def process_frame(self, frame):
-        depth_map = self.depth_estimator.calculate_depth_map(frame)
+        depth_map = self.depth_estimator.depth(frame)
         detected_objects = self.object_detector.detect_objects(frame)
-        processed_frame = self.draw_objects(frame, detected_objects, depth_map)
-        return processed_frame
 
-    def draw_objects(self, frame, detected_objects, depth_map):
-        for obj in detected_objects:
-            x1, y1, x2, y2, conf, object_class = obj['x1'], obj['y1'], obj['x2'], obj['y2'], obj['conf'], obj['class']
+        # Extend the detected_objects_dict with distances and deviations
+        for object_class, obj_info in detected_objects.items():
+            x1, y1, x2, y2, conf = obj_info['x1'], obj_info['y1'], obj_info['x2'], obj_info['y2'], obj_info['conf']
             distance = self.calculate_distance(x1, y1, x2, y2, depth_map)
-            horizontal_deviation = self.calculate_horizontal_deviation(x1, x2)
-            vertical_deviation = self.calculate_vertical_deviation(y1, y2)
+            horizontal_deviation, vertical_deviation = self.deviations(x1, x2, y1, y2)
+            obj_info['distance'] = distance
+            obj_info['horizontal_deviation'] = horizontal_deviation
+            obj_info['vertical_deviation'] = vertical_deviation
 
-            
-
-        return frame
+        return frame, detected_objects
 
     def calculate_distance(self, x1, y1, x2, y2, depth_map):
         # Define the region of interest within the bounding box
@@ -89,11 +93,11 @@ class FrameProcessor:
             # Handle the case where there is no valid depth information in the region
             return None
 
-    def calculate_horizontal_deviation(self, x1, x2):
-        return math.degrees(math.atan((x1 + (x2 - x1) / 2 - self.camera_center_x) / self.focal_length))
-
-    def calculate_vertical_deviation(self, y1, y2):
-        return math.degrees(math.atan((y1 + (y2 - y1) / 2 - self.camera_center_y) / self.focal_length)
+    def deviations(self, x1, x2, y1, y2):
+        
+        h_deviation = math.degrees(math.atan((x1 + (x2 - x1) / 2 - self.camera_center_x) / self.focal_length))
+        v_deviation = math.degrees(math.atan((y1 + (y2 - y1) / 2 - self.camera_center_y) / self.focal_length))
+        return h_deviation,  v_deviation
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -110,7 +114,8 @@ class FrameAnalyzer:
         self.max_frames_to_process = max_frames_to_process
         self.start_time = time()
         self.frame_count = 0
-        self.processed_frames = []
+        self.features = {}
+        
 
     def analyze_frames(self, cap, frame_processor):
         while True:
@@ -118,42 +123,38 @@ class FrameAnalyzer:
             if not ret:
                 break
             self.frame_count += 1
-            processed_frame = frame_processor.process_frame(frame)
+            processed_frame, detected_objects = frame_processor.process_frame(frame)
+            print(f"Frame {self.frame_count}: Detected objects - {detected_objects}")
+
+            # Extend the detected_objects_dict with the current frame's data
+            #self.detected_objects_dict['frame_count'] = self.frame_count
+            #self.detected_objects_dict['detected_objects'] = detected_objects
+
             output_image_path = os.path.join(self.output_directory, f"frame_{self.frame_count}.jpg")
             cv2.imwrite(output_image_path, processed_frame)
-            self.save_json_data()
-            if self.should_break():
+            elapsed_time = time() - self.start_time
+            if elapsed_time >= self.processing_interval:
+                self.features[self.frame_count] = {
+                    'frame_count': self.frame_count,
+                    'detected_objects': detected_objects
+                }
+
+                # Reset the timer
+                start_time = time()
+
+                # When saving the JSON data, use the custom encoder
+                json_data = json.dumps(self.features, indent=4, cls=NumpyEncoder)
+                output_json_path = f"C:/Users/Admin/Documents/processed_frames_{self.frame_count}.json"
+                with open(output_json_path, "w") as json_file:
+                    json_file.write(json_data)
+                print(f"Success! JSON data saved to {output_json_path}")
+
+            # If you want to break the loop after processing a specific number of frames, you can add a condition here
+            if self.max_frames_to_process and self.frame_count >= self.max_frames_to_process:
                 break
 
-    def save_json_data(self):
-        elapsed_time = time() - self.start_time
-        if elapsed_time >= self.processing_interval:
-            json_data = json.dumps(self.processed_frames, indent=4, cls=NumpyEncoder)
-            output_json_path = f"C:/Users/Admin/Documents/processed_frames_{self.frame_count}.json"
-            with open(output_json_path, "w") as json_file:
-                json_file.write(json_data)
-            print(f"Success! JSON data saved to {output_json_path}")
-            self.processed_frames.append({
-                'frame_count': self.frame_count,
-                'detected_objects': [
-                    {
-                        'x1': obj['x1'],
-                        'y1': obj['y1'],
-                        'x2': obj['x2'],
-                        'y2': obj['y2'],
-                        'conf': obj['conf'],
-                        'class': obj['class'],
-                        'distance': self.calculate_distance(obj['x1'], obj['y1'], obj['x2'], obj['y2'], depth_map),
-                        'horizontal_deviation': self.calculate_horizontal_deviation(obj['x1'], obj['x2']),
-                        'vertical_deviation': self.calculate_vertical_deviation(obj['y1'], obj['y2'])
-                    }
-                    for obj in detected_objects
-                ]
-            })
-            self.start_time = time()
-
-    def should_break(self):
-        return self.max_frames_to_process and self.frame_count >= self.max_frames_to_process
+        # Release the VideoCapture and close any open windows
+        cap.release()
     
 def main():
     output_directory = "C:\\Users\\Admin\\Pictures\\Depth"
