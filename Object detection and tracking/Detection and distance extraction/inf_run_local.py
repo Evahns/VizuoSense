@@ -144,7 +144,7 @@ class FrameAnalyzer:
 
                 # When saving the JSON data, use the custom encoder
                 json_data = json.dumps(self.features, indent=4, cls=NumpyEncoder)
-                output_json_path = f"C:/Users/Admin/Documents/processed_frames_{self.frame_count}.json"
+                output_json_path = f"D:/vizuosense_mine/Resources/Saves/processed_frames_{self.frame_count}.json"
                 with open(output_json_path, "w") as json_file:
                     json_file.write(json_data)
                 print(f"Success! JSON data saved to {output_json_path}")
@@ -157,11 +157,11 @@ class FrameAnalyzer:
         cap.release()
     
 def main():
-    output_directory = "C:\\Users\\Admin\\Pictures\\Depth"
+    output_directory = "D:/vizuosense_mine/Resources/Saves"
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    object_detector = ObjectDetector("C://Users//Admin//Downloads//yolo-weights//yolov8l.pt", ["person", "bicycle", "car", "motorbike", "bus", "truck", "tie"])
+    object_detector = ObjectDetector("D:/vizuosense_mine/Resources/yolov8l.pt", ["person", "bicycle", "car", "motorbike", "bus", "truck", "tie"])
     depth_estimator = DepthEstimator()
     camera_center_x, camera_center_y, focal_length = 320, 240, 3.0
 
