@@ -76,22 +76,22 @@ class FrameProcessor:
 
         return frame, detected_objects
 
-    def calculate_distance(self, x1, y1, x2, y2, depth_map):
+    #def calculate_distance(self, x1, y1, x2, y2, depth_map):
         # Define the region of interest within the bounding box
-        roi = depth_map[y1:y2, x1:x2]
+        #roi = depth_map[y1:y2, x1:x2]
         # Calculate the weighted average depth within the region
-        y, x = np.indices(roi.shape)
-        total_depth = np.sum(roi)
-        weighted_x = np.sum(x * roi)
-        weighted_y = np.sum(y * roi)
-        if total_depth > 0:
-            center_x = x1 + weighted_x / total_depth
-            center_y = y1 + weighted_y / total_depth
-            distance = roi[int(center_y - y1), int(center_x - x1)]
-            return distance
-        else:
+        #y, x = np.indices(roi.shape)
+        #total_depth = np.sum(roi)
+        #weighted_x = np.sum(x * roi)
+        #weighted_y = np.sum(y * roi)
+        #if total_depth > 0:
+            #center_x = x1 + weighted_x / total_depth
+            #center_y = y1 + weighted_y / total_depth
+            #distance = roi[int(center_y - y1), int(center_x - x1)]
+            #return distance
+        #else:
             # Handle the case where there is no valid depth information in the region
-            return None
+            #return None
 
     def deviations(self, x1, x2, y1, y2):
         
