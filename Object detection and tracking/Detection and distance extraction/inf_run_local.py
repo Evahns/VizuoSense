@@ -60,20 +60,84 @@ class FrameProcessor:
             'frame_count': self.frame_count,
             'detected_objects': [],
         }
+        self.classNames = object_detector.classNames
+        # Initialize Kalman filters for detected objects
+        self.kalman_filters = []
+        for _ in range(len(self.classNames)):  # Assuming classNames is a list of object classes
+            kalman_filter = cv2.KalmanFilter(4, 2)
+            kalman_filter.transitionMatrix = np.array([[1, 0, 1, 0],
+                                                      [0, 1, 0, 1],
+                                                      [0, 0, 1, 0],
+                                                      [0, 0, 0, 1]], np.float32)
+            kalman_filter.measurementMatrix = np.array([[1, 0, 0, 0],
+                                                       [0, 1, 0, 0]], np.float32)
+            kalman_filter.processNoiseCov = np.array([[1, 0, 0, 0],
+                                                    [0, 1, 0, 0],
+                                                    [0, 0, 1, 0],
+                                                    [0, 0, 0, 1]], np.float32) * 0.03
+            kalman_filter.measurementNoiseCov = np.array([[1, 0],
+                                                        [0, 1]], np.float32) * 0.1
+            kalman_filter.statePost = np.array([0, 0, 0, 0], np.float32)
+            self.kalman_filters.append(kalman_filter)
 
     def process_frame(self, frame):
         depth_map = self.depth_estimator.depth(frame)
         detected_objects = self.object_detector.detect_objects(frame)
+        updated_positions = []
 
         # Extend the detected_objects_dict with distances and deviations
-        for object_class, obj_info in detected_objects.items():
+        for i, (object_class, obj_info) in enumerate(detected_objects.items()):
             x1, y1, x2, y2, conf = obj_info['x1'], obj_info['y1'], obj_info['x2'], obj_info['y2'], obj_info['conf']
-            distance = self.calculate_distance(x1, y1, x2, y2, depth_map)
+
+            # Get the measurement (observed) position
+            measurement = np.array([[x1 + (x2 - x1) / 2], [y1 + (y2 - y1) / 2]], dtype=np.float32)
+
+            # Update the Kalman filter with the measurement
+            self.kalman_filters[i].correct(measurement)
+
+            # Predict the next state
+            prediction = self.kalman_filters[i].predict()
+
+            # Extract the predicted position
+            predicted_x = prediction[0, 0]
+            predicted_y = prediction[1, 0]
+            
+            # Calculate the depth value from the depth map
+            depth = depth_map[int(predicted_y), int(predicted_x)]
+
+            # Use the depth information to further update the Kalman filter
+            if depth is not None:
+                # Assuming depth is in the same unit as the Kalman filter (e.g., pixels)
+                depth_measurement = np.array([[depth], [0]], dtype=np.float32)
+                self.kalman_filters[i].correct(depth_measurement)
+
+            # Calculate the distance based on the Kalman filter's state
+            # Adjust the scaling_factor and unit conversion based on your setup
+            a=0.15
+           
+            distance = a * np.log(depth) 
+
+            # Store the updated position and estimated distance for this object
+            updated_positions.append((predicted_x, predicted_y, distance))
+            
             horizontal_deviation, vertical_deviation = self.deviations(x1, x2, y1, y2)
             obj_info['distance'] = distance
             obj_info['horizontal_deviation'] = horizontal_deviation
             obj_info['vertical_deviation'] = vertical_deviation
+            
+            # Draw bounding boxes and display estimated distances on the frame
+            # After the loop for updated_positions
+            for (x, y, distance) in updated_positions:
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Draw a green bounding box
+    
+                # Convert the distance to a string for displaying
+                distance_text = f"Distance: {distance} units and Depth: {depth}"
+    
+                # Define the position for the text
+                text_position = (int(x), int(y - 10))  # Adjust as needed
 
+                # Draw the text on the frame
+                cv2.putText(frame, distance_text, text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         return frame, detected_objects
 
     def calculate_distance(self, x1, y1, x2, y2, depth_map):
