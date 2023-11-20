@@ -248,7 +248,7 @@ def main():
 
     object_detector = ObjectDetector("C://Users//Admin//Downloads//yolo-weights//yolov8l.pt", ["person", "bicycle", "car", "motorbike", "bus", "truck", "tie"])
     depth_estimator = DepthEstimator()
-    camera_center_x, camera_center_y, focal_length = 320, 240, 3.0
+    camera_center_x, camera_center_y, focal_length = 320, 240, 4.74
 
     frame_processor = FrameProcessor(camera_center_x, camera_center_y, focal_length, object_detector, depth_estimator)
 
