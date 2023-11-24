@@ -40,13 +40,28 @@ class DepthEstimator:
     def depth(self, frame):
         transform = T.Compose([T.Resize(384), T.ToTensor()])
         input_image = transform(Image.fromarray(frame)).unsqueeze(0)
+        
         with torch.no_grad():
             prediction = self.midas(input_image)
+        
         depth_map = prediction.squeeze().cpu().numpy()
-        depth_map = cv2.normalize(depth_map, None, 0, 255, cv2.NORM_MINMAX)
-        scaling_factor = 1.0
-        depth_map = depth_map * scaling_factor
-        return depth_map
+        depth_map = cv2.normalize(depth_map, None, 0, 1, cv2.NORM_MINMAX)
+
+        # Apply custom colormap
+        colored_depth_map = self.apply_colormap(depth_map)
+
+        return depth_map, colored_depth_map
+
+    def apply_colormap(self, depth_map):
+        inverted_depth_map = 1.0 - depth_map
+
+        # Apply custom colormap for the desired mapping
+        colormap = cv2.applyColorMap((inverted_depth_map * 255).astype(np.uint8), cv2.COLORMAP_JET)
+
+        # Convert to RGB
+        colored_depth_map = cv2.cvtColor(colormap, cv2.COLOR_BGR2RGB)
+
+        return colored_depth_map
         
 class FrameProcessor:
     def __init__(self, camera_center_x, camera_center_y, focal_length, object_detector, depth_estimator):
@@ -81,7 +96,7 @@ class FrameProcessor:
             self.kalman_filters.append(kalman_filter)
 
     def process_frame(self, frame):
-        depth_map = self.depth_estimator.depth(frame)
+        depth_map, colored_depth_map = self.depth_estimator.depth(frame)
         detected_objects = self.object_detector.detect_objects(frame)
         updated_positions = []
 
@@ -102,8 +117,14 @@ class FrameProcessor:
             predicted_x = prediction[0, 0]
             predicted_y = prediction[1, 0]
             
-            # Calculate the depth value from the depth map
-            depth = depth_map[int(predicted_y), int(predicted_x)]
+            depth_map_height, depth_map_width = depth_map.shape
+
+            # Clamp the indices to ensure they are within the valid range
+            clamped_y = np.clip(int(predicted_y), 0, depth_map_height - 1)
+            clamped_x = np.clip(int(predicted_x), 0, depth_map_width - 1)
+
+            # Access the depth_map using the clamped indices
+            depth = depth_map[clamped_y, clamped_x]
 
             # Use the depth information to further update the Kalman filter
             if depth is not None:
@@ -138,7 +159,7 @@ class FrameProcessor:
 
                 # Draw the text on the frame
                 cv2.putText(frame, distance_text, text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        return frame, detected_objects
+        return colored_depth_map, detected_objects
 
     #def calculate_distance(self, x1, y1, x2, y2, depth_map):
         # Define the region of interest within the bounding box
@@ -208,7 +229,7 @@ class FrameAnalyzer:
 
                 # When saving the JSON data, use the custom encoder
                 json_data = json.dumps(self.features, indent=4, cls=NumpyEncoder)
-                output_json_path = f"D:/vizuosense_mine/Resources/Saves/processed_frames_{self.frame_count}.json"
+                output_json_path = f"C:/Users/Admin/Documents/processed_frames_{self.frame_count}.json"
                 with open(output_json_path, "w") as json_file:
                     json_file.write(json_data)
                 print(f"Success! JSON data saved to {output_json_path}")
@@ -221,13 +242,13 @@ class FrameAnalyzer:
         cap.release()
     
 def main():
-    output_directory = "D:/vizuosense_mine/Resources/Saves"
+    output_directory = "C:\\Users\\Admin\\Pictures\\Depth"
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    object_detector = ObjectDetector("D:/vizuosense_mine/Resources/yolov8l.pt", ["person", "bicycle", "car", "motorbike", "bus", "truck", "tie"])
+    object_detector = ObjectDetector("C://Users//Admin//Downloads//yolo-weights//yolov8l.pt", ["person", "bicycle", "car", "motorbike", "bus", "truck", "tie"])
     depth_estimator = DepthEstimator()
-    camera_center_x, camera_center_y, focal_length = 320, 240, 3.0
+    camera_center_x, camera_center_y, focal_length = 320, 240, 4.74
 
     frame_processor = FrameProcessor(camera_center_x, camera_center_y, focal_length, object_detector, depth_estimator)
 
