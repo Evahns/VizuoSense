@@ -214,7 +214,7 @@ class FrameAnalyzer:
 
                 # When saving the JSON data, use the custom encoder
                 json_data = json.dumps(self.features, indent=4, cls=NumpyEncoder)
-                output_json_path = f"C:/Users/Admin/Documents/processed_frames_{self.frame_count}.json"
+                output_json_path = f"D:/vizuosense_mine/Resources/Saves/processed_frames_{self.frame_count}.json"
                 with open(output_json_path, "w") as json_file:
                     json_file.write(json_data)
                 print(f"Success! JSON data saved to {output_json_path}")
