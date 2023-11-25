@@ -40,13 +40,28 @@ class DepthEstimator:
     def depth(self, frame):
         transform = T.Compose([T.Resize(384), T.ToTensor()])
         input_image = transform(Image.fromarray(frame)).unsqueeze(0)
+        
         with torch.no_grad():
             prediction = self.midas(input_image)
+        
         depth_map = prediction.squeeze().cpu().numpy()
-        depth_map = cv2.normalize(depth_map, None, 0, 255, cv2.NORM_MINMAX)
-        scaling_factor = 1.0
-        depth_map = depth_map * scaling_factor
-        return depth_map
+        depth_map = cv2.normalize(depth_map, None, 0, 1, cv2.NORM_MINMAX)
+
+        # Apply custom colormap
+        colored_depth_map = self.apply_colormap(depth_map)
+
+        return depth_map, colored_depth_map
+
+    def apply_colormap(self, depth_map):
+        inverted_depth_map = 1.0 - depth_map
+
+        # Apply custom colormap for the desired mapping
+        colormap = cv2.applyColorMap((inverted_depth_map * 255).astype(np.uint8), cv2.COLORMAP_JET)
+
+        # Convert to RGB
+        colored_depth_map = cv2.cvtColor(colormap, cv2.COLOR_BGR2RGB)
+
+        return colored_depth_map
         
 class FrameProcessor:
     def __init__(self, camera_center_x, camera_center_y, focal_length, object_detector, depth_estimator):
@@ -81,7 +96,7 @@ class FrameProcessor:
             self.kalman_filters.append(kalman_filter)
 
     def process_frame(self, frame):
-        depth_map = self.depth_estimator.depth(frame)
+        depth_map, colored_depth_map = self.depth_estimator.depth(frame)
         detected_objects = self.object_detector.detect_objects(frame)
         updated_positions = []
 
@@ -101,9 +116,15 @@ class FrameProcessor:
             # Extract the predicted position
             predicted_x = prediction[0, 0]
             predicted_y = prediction[1, 0]
-            
-            # Calculate the depth value from the depth map
-            depth = depth_map[int(predicted_y), int(predicted_x)]
+
+            depth_map_height, depth_map_width = depth_map.shape
+
+            # Clamp the indices to ensure they are within the valid range
+            clamped_y = np.clip(int(predicted_y), 0, depth_map_height - 1)
+            clamped_x = np.clip(int(predicted_x), 0, depth_map_width - 1)
+
+            # Access the depth_map using the clamped indices
+            depth = depth_map[clamped_y, clamped_x]
 
             # Use the depth information to further update the Kalman filter
             if depth is not None:
@@ -111,51 +132,36 @@ class FrameProcessor:
                 depth_measurement = np.array([[depth], [0]], dtype=np.float32)
                 self.kalman_filters[i].correct(depth_measurement)
 
-            # Calculate the distance based on the Kalman filter's state
-            # Adjust the scaling_factor and unit conversion based on your setup
-            a=0.15
-           
-            distance = a * np.log(depth) 
+            # Calculate the proximity based on the colored depth map
+            proximity = self.calculate_proximity(depth_map, x1, y1, x2, y2)
 
-            # Store the updated position and estimated distance for this object
-            updated_positions.append((predicted_x, predicted_y, distance))
+            # Store the updated position and estimated proximity for this object
+            updated_positions.append((predicted_x, predicted_y, proximity))
             
-            horizontal_deviation, vertical_deviation = self.deviations(x1, x2, y1, y2)
-            obj_info['distance'] = distance
-            obj_info['horizontal_deviation'] = horizontal_deviation
-            obj_info['vertical_deviation'] = vertical_deviation
-            
-            # Draw bounding boxes and display estimated distances on the frame
-            # After the loop for updated_positions
-            for (x, y, distance) in updated_positions:
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Draw a green bounding box
-    
-                # Convert the distance to a string for displaying
-                distance_text = f"Distance: {distance} units and Depth: {depth}"
-    
-                # Define the position for the text
-                text_position = (int(x), int(y - 10))  # Adjust as needed
+            obj_info['proximity'] = proximity
 
-                # Draw the text on the frame
-                cv2.putText(frame, distance_text, text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        return frame, detected_objects
-
-    #def calculate_distance(self, x1, y1, x2, y2, depth_map):
+        return colored_depth_map, detected_objects
+    
+    def calculate_proximity(self, colored_depth_map, x1, y1, x2, y2):
         # Define the region of interest within the bounding box
-        #roi = depth_map[y1:y2, x1:x2]
-        # Calculate the weighted average depth within the region
-        #y, x = np.indices(roi.shape)
-        #total_depth = np.sum(roi)
-        #weighted_x = np.sum(x * roi)
-        #weighted_y = np.sum(y * roi)
-        #if total_depth > 0:
-            #center_x = x1 + weighted_x / total_depth
-            #center_y = y1 + weighted_y / total_depth
-            #distance = roi[int(center_y - y1), int(center_x - x1)]
-            #return distance
-        #else:
-            # Handle the case where there is no valid depth information in the region
-            #return None
+        roi = colored_depth_map[y1:y2, x1:x2]
+
+        # Define colors for the proximity zones
+        blue_color = [255, 0, 0]  # Blue in BGR format
+        yellow_color = [0, 255, 255]  # Yellow in BGR format
+        red_color = [0, 0, 255]  # Red in BGR format
+
+        # Check if any pixels in the region are within the colored zones
+        in_blue_zone = np.any(np.all(roi == blue_color, axis=-1))
+        in_yellow_zone = np.any(np.all(roi == yellow_color, axis=-1))
+        in_red_zone = np.any(np.all(roi == red_color, axis=-1))
+
+        if in_red_zone:
+            return "very_near"
+        elif in_yellow_zone:
+            return "near"
+        else:
+            return "ignore"  
 
     def deviations(self, x1, x2, y1, y2):
         
@@ -208,7 +214,7 @@ class FrameAnalyzer:
 
                 # When saving the JSON data, use the custom encoder
                 json_data = json.dumps(self.features, indent=4, cls=NumpyEncoder)
-                output_json_path = f"D:/vizuosense_mine/Resources/Saves/processed_frames_{self.frame_count}.json"
+                output_json_path = f"C:/Users/Admin/Documents/processed_frames_{self.frame_count}.json"
                 with open(output_json_path, "w") as json_file:
                     json_file.write(json_data)
                 print(f"Success! JSON data saved to {output_json_path}")
@@ -221,13 +227,13 @@ class FrameAnalyzer:
         cap.release()
     
 def main():
-    output_directory = "D:/vizuosense_mine/Resources/Saves"
+    output_directory = "C:\\Users\\Admin\\Pictures\\Depth"
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    object_detector = ObjectDetector("D:/vizuosense_mine/Resources/yolov8l.pt", ["person", "bicycle", "car", "motorbike", "bus", "truck", "tie"])
+    object_detector = ObjectDetector("C://Users//Admin//Downloads//yolo-weights//yolov8l.pt", ["person", "bicycle", "car", "motorbike", "bus", "truck", "tie"])
     depth_estimator = DepthEstimator()
-    camera_center_x, camera_center_y, focal_length = 320, 240, 3.0
+    camera_center_x, camera_center_y, focal_length = 320, 240, 4.74
 
     frame_processor = FrameProcessor(camera_center_x, camera_center_y, focal_length, object_detector, depth_estimator)
 
