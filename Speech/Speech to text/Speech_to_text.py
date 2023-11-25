@@ -1,6 +1,7 @@
 
 import wave
 import sys
+import pyaudio as pa
 from vosk import Model, KaldiRecognizer, SetLogLevel
 
 #the path to the model that is to be used for the transcription, follow instruction in the README.md file to download the model
@@ -19,17 +20,30 @@ SetLogLevel(0)
 #The file has to be in .wav format at least for now
 wf = wave.open("D:\\vizuosense_mine\\VizuoSense\\Resources\\test.wav", "rb")
 
-rec = KaldiRecognizer(model, wf.getframerate())
+p = pa.PyAudio()
+stream = p.open(format=pa.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=8000)
+stream.start_stream()
+
+#rec = KaldiRecognizer(model, wf.getframerate())
+rec = KaldiRecognizer(model, 16000)
 rec.SetWords(True)
 rec.SetPartialWords(True)
 
 while True:
-    data = wf.readframes(4000)
+    #data = wf.readframes(4000)
+    print("start talking")
+    data = stream.read(4000,exception_on_overflow=False)
     if len(data) == 0:
         break
-    if rec.AcceptWaveform(data):
-        print(rec.Result())
-    else:
-        print(rec.PartialResult())
+    rec.AcceptWaveform(data)
+    #     print(rec.Result())
+    # else:
+    #     print(rec.PartialResult())
+final_result = rec.FinalResult()
+final_text = json.loads(final_result)
+print(final_text)
 
-print(rec.FinalResult())
+#print(rec.FinalResult())
+stream.stop_stream()
+stream.close()
+p.terminate()

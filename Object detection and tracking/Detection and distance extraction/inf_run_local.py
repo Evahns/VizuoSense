@@ -231,7 +231,7 @@ def main():
 
     frame_processor = FrameProcessor(camera_center_x, camera_center_y, focal_length, object_detector, depth_estimator)
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     processing_interval = 10
     max_frames_to_process = 10
     frame_analyzer = FrameAnalyzer(output_directory, processing_interval, max_frames_to_process)
