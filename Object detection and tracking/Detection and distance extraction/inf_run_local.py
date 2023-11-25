@@ -227,7 +227,7 @@ class FrameAnalyzer:
         cap.release()
     
 def main():
-    output_directory = "C:\\Users\\Admin\\Pictures\\Depth"
+    output_directory = "D:/vizuosense_mine/Resources/Saves"
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
