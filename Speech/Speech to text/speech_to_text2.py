@@ -7,7 +7,7 @@ from vosk import Model, KaldiRecognizer, SetLogLevel
 import json
 
 #the path to the model that is to be used for the transcription, follow instruction in the README.md file to download the model
-model = Model(model_path="S:\\programs\\vosk-model-small-en-us-0.15", model_name="vosk-model-small-en-us-0.15", lang="small-en-us")
+model_path = "D:\\vizuosense_mine\\STT\\Resources\\vosk-model-small-en-us-0.15\\vosk-model-small-en-us-0.15"
 # You can set log level to -1 to disable debug messages
 SetLogLevel(0)
 
@@ -63,7 +63,7 @@ while True:
        
 
 # Save the recognized text to a file
-output_file_path = "S:\\vs code\\speech\\recognized_text.txt"
+output_file_path = "D:\\vizuosense_mine\\Resources\\Saves\\recognized_text.txt"
 with open(output_file_path, "w") as output_file:
     output_file.write(recognized_text)
 

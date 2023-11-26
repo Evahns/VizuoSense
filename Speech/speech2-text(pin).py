@@ -7,8 +7,8 @@ from vosk import Model, KaldiRecognizer, SetLogLevel
 import json
 
 #the path to the model that is to be used for the transcription, follow instruction in the README.md file to download the model
-model = Model(model_path="S:\\programs\\vosk-model-small-en-us-0.15", model_name="vosk-model-small-en-us-0.15", lang="small-en-us")
-# You can set log level to -1 to disable debug messages
+#model = "D:\\vizuosense_mine\\STT\\Resources\\vosk-model-small-en-us-0.15"
+model = Model(model_path = "D:\\vizuosense_mine\\STT\\Resources\\vosk-model-small-en-us-0.15", model_name="vosk-model-small-en-us-0.15", lang="small-en-us")
 SetLogLevel(0)
 
 '''
@@ -26,7 +26,8 @@ SetLogLevel(0)
 p = pa.PyAudio()
 
 # open a stream with the system microphone as the input source
-stream = p.open(format=pa.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=8000)
+microphone_index = 3
+stream = p.open(format=pa.paInt16, channels=1, rate=16000, input=True, frames_per_buffer=8000, input_device_index=microphone_index)
 stream.start_stream()
 
 #rec = KaldiRecognizer(model, wf.getframerate())
