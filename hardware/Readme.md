@@ -6,8 +6,8 @@ Install Remote SSH extension on your VS code
 
 ctrl + shift + p
 select remote ssh connecting to host
-username vizuosense@IP Address
-Machine Password:   vizuosense
+username Vizuosense@IP Address
+Machine Password:   Vizuosense
 
 
 You are in, 
