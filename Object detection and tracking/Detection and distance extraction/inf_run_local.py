@@ -230,14 +230,21 @@ def main():
     output_directory = "D:/vizuosense_mine/Resources/Saves"
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
+    model = YOLO("D:/vizuosense_mine/Resources/yolov8l.pt")
+    Classnames = model.model.names
+    names = []
+    for i in range(len(Classnames)):
+        names.append(Classnames[i])
 
-    object_detector = ObjectDetector("C://Users//Admin//Downloads//yolo-weights//yolov8l.pt", ["person", "bicycle", "car", "motorbike", "bus", "truck", "tie"])
+#The Classnames of the objects to be detected in the image for recognition
+
+    object_detector = ObjectDetector("D:/vizuosense_mine/Resources/yolov8l.pt", names)
     depth_estimator = DepthEstimator()
     camera_center_x, camera_center_y, focal_length = 320, 240, 4.74
 
     frame_processor = FrameProcessor(camera_center_x, camera_center_y, focal_length, object_detector, depth_estimator)
 
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     processing_interval = 10
     max_frames_to_process = 10
     frame_analyzer = FrameAnalyzer(output_directory, processing_interval, max_frames_to_process)
