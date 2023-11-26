@@ -9,7 +9,7 @@ import json
 #the path to the model that is to be used for the transcription, follow instruction in the README.md file to download the model
 model = Model(model_path="S:\\programs\\vosk-model-small-en-us-0.15", model_name="vosk-model-small-en-us-0.15", lang="small-en-us")
 # You can set log level to -1 to disable debug messages
-SetLogLevel(0)
+SetLogLevel(1)
 
 '''
 #Getting the audio file that is specified in the command line
