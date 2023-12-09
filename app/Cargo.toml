@@ -1,0 +1,13 @@
+[package]
+name = "GUI Application"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+gio-sys = "0.18.1"
+glib-sys = "0.18.1"
+gobject-sys = "0.18.0"
+gtk = { version = "0.7.3", package = "gtk4" }
+winapi = "0.3.9"
