@@ -1,2 +1,2 @@
 ## Integration of the various chunks of the project ##
-[Click here to access the Google document with all the links and additional information related to the LLM]("https://docs.google.com/document/d/1p8b5OKp7xQcMDgU0tEt5dOjXvjPwa6tXeI2vvaF37Ok/edit")
+[Click here to access the Google document with all the links and additional information related to the LLM](https://docs.google.com/document/d/1p8b5OKp7xQcMDgU0tEt5dOjXvjPwa6tXeI2vvaF37Ok/edit)
