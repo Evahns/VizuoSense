@@ -72,6 +72,16 @@ class SpeechToTextEngine:
                 if "open browser" in partial_text.lower():
                     print("Opening the browser...")
                     subprocess.run(["start", "https://www.google.com"])
+                elif "stop" in partial_text.lower():
+                    print("Stop listening detected. Stopping...")
+                    list_stat1 = False
+                    text_prompt = "stop"
+                    return False,text_prompt
+                elif "write only mode" in partial_text.lower():
+                    print("Write only mode detected. Switching from speech to writting mode...")
+                    list_stat1 = False
+                    text_prompt = "write only mode"
+                    return False,text_prompt
                 if keyboard.is_pressed('p'):
                         print(f''' KeyboardInterrupt: Stopping real-time listening
                         recognized text being:{recognized_text} ''')
