@@ -29,6 +29,7 @@ class SpeechToTextEngine:
 
     def listen_for_keywords(self, stream):
         stream, rec, recognized_text = self.configure()
+        
         while True:
             data = stream.read(4000, exception_on_overflow=False)
             rec.AcceptWaveform(data)
@@ -39,9 +40,9 @@ class SpeechToTextEngine:
                 if "listen" in partial_text.lower():
                     print("Waking up ! Listening for input...")
                     text_prompt = listen_for_speech_prompt(self, stream)
-                    return False, text_prompt
-                elif "stop recording" in partial_text.lower():
-                    print("Stop recording detected. Stopping...")
+                    return True, text_prompt
+                elif "stop" in partial_text.lower():
+                    print("Stop listening detected. Stopping...")
                     return False
                 elif "write only mode" in partial_text.lower():
                     print("Write only mode detected. Switching from speech to writting mode...")
