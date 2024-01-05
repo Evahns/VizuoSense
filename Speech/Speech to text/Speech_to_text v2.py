@@ -39,7 +39,7 @@ class SpeechToTextEngine:
                 partial_text = json.loads(partial_result).get("partial", "")
                 if "listen" in partial_text.lower():
                     print("Waking up ! Listening for input...")
-                    text_prompt = listen_for_speech_prompt(self, stream)
+                    text_prompt = self.listen_for_speech_prompt(stream)
                     list_stat1 = False
                     return True,text_prompt
                 elif "stop" in partial_text.lower():
