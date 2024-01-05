@@ -12,6 +12,13 @@ class SpeechToTextEngine:
         self.save_textfile_dir = save_textfile_dir
 
     def configure(self):
+        """
+        :this is the configuaration function for the program
+        :returns 
+            stream: speech stream
+            rec: the reconizer initializer
+            recognized_text: any text detected  and recognized by the recognizer
+        """
         model = Model(model_path=self.model_path, model_name=self.model_name, lang=self.lang)
 
         SetLogLevel(0)
@@ -28,6 +35,11 @@ class SpeechToTextEngine:
         return stream, rec, recognized_text
 
     def listen_for_keywords(self, stream):
+        """
+        :param: stream
+        :returns:
+            recognized text
+        """
         stream, rec, recognized_text = self.configure()
         list_stat1 = True
         while list_stat1:
@@ -79,6 +91,11 @@ class SpeechToTextEngine:
                         return recognized_text
 
     def real_time_listen(self):
+        """
+        initialize two process:
+            listening for keywords: Should be active troughout the whole speech process
+            listening for speech prompts
+        """
         stream, rec, recognized_text = self.configure()
         try:
             while True:
