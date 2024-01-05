@@ -85,10 +85,13 @@ class SpeechToTextEngine:
                 speech_stat,speech_input = self.listen_for_keywords(stream)
                 if speech_stat:
                     print(speech_input)
+                    print("going back to another session of listening. to listing keywords")
                 elif speech_input == "write only mode":
-                    print("write only mode")
-                elif speech_input == "write only mode":
-                   print("write only mode")
+                    print("write only mode at real time listen, switching to write only, roger that")
+                    break
+                elif speech_input == "stop":
+                   print("stop keyword detected at real time listen, stopping the process. ")
+                   break
 
 
         except KeyboardInterrupt:
