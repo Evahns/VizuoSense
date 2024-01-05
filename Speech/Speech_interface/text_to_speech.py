@@ -20,7 +20,6 @@ class text_to_speech_engine():
             engine.runAndWait()
             engine.stop()
 def speech_output(response):
-        response.text = response
-        tts_engine = text_to_speech_engine(response.text, 150)
+        tts_engine = text_to_speech_engine(response, 150)
         tts_engine.TTS()
-        print(response.text)
+        print(response)
