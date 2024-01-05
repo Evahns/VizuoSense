@@ -29,8 +29,8 @@ class SpeechToTextEngine:
 
     def listen_for_keywords(self, stream):
         stream, rec, recognized_text = self.configure()
-        
-        while True:
+        list_stat1 = True
+        while list_stat1:
             data = stream.read(4000, exception_on_overflow=False)
             rec.AcceptWaveform(data)
             partial_result = rec.PartialResult()
@@ -40,20 +40,26 @@ class SpeechToTextEngine:
                 if "listen" in partial_text.lower():
                     print("Waking up ! Listening for input...")
                     text_prompt = listen_for_speech_prompt(self, stream)
-                    return True, text_prompt
+                    list_stat1 = False
+                    return True,text_prompt
                 elif "stop" in partial_text.lower():
                     print("Stop listening detected. Stopping...")
-                    return False
+                    list_stat1 = False
+                    text_prompt = "stop"
+                    return False,text_prompt
                 elif "write only mode" in partial_text.lower():
                     print("Write only mode detected. Switching from speech to writting mode...")
-                    return False
+                    list_stat1 = False
+                    text_prompt = "write only mode"
+                    return False,text_prompt
                 else:
                     print("No keyword detected. Speek to issue an input...")
-                    return True
+                    list_stat1 = True
 
     def listen_for_speech_prompt(self, stream):
         stream, rec, recognized_text = self.configure()
-        while True:
+        list_stat2 = True
+        while list_stat2:
             data = stream.read(4000, exception_on_overflow=False)
             rec.AcceptWaveform(data)
             partial_result = rec.PartialResult()
@@ -69,17 +75,21 @@ class SpeechToTextEngine:
                 if keyboard.is_pressed('p'):
                         print(f''' KeyboardInterrupt: Stopping real-time listening
                         recognized text being:{recognized_text} ''')
-                        return recognized_text,False
+                        list_stat2 = False
+                        return recognized_text
 
     def real_time_listen(self):
         stream, rec, recognized_text = self.configure()
         try:
             while True:
-                speech_input = self.listen_for_keywords(stream)
-                if self.listen_for_keywords(stream):
-                    # Listen for a command
-                    if not self.listen_for_speech_prompt(stream):
-                        break  # Stop listening if requested
+                speech_stat,speech_input = self.listen_for_keywords(stream)
+                if speech_stat:
+                    print(speech_input)
+                elif speech_input == "write only mode":
+                    print("write only mode")
+                elif speech_input == "write only mode":
+                   print("write only mode")
+
 
         except KeyboardInterrupt:
             print("KeyboardInterrupt: Stopping real-time listening")
@@ -87,8 +97,6 @@ class SpeechToTextEngine:
         stream.stop_stream()
         stream.close()
         p.terminate()
-
-        print(f"Recognized text {speech_input}")
 
 def main():
     model_path = "D:\\vizuosense_mine\\STT\\Resources\\vosk-model-small-en-us-0.15"
